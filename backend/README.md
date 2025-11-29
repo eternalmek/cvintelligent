@@ -9,6 +9,12 @@ Fonctionnalités :
 
 Installation :
 1. Copier .env.example -> .env et renseigner OPENAI_API_KEY.
+   - Ajoute STRIPE_SECRET_KEY, FRONTEND_URL et les prix Stripe par offre :
+     * STRIPE_PRICE_ID_STARTER
+     * STRIPE_PRICE_ID_PRO
+     * STRIPE_PRICE_ID_ULTIMATE
+     * STRIPE_PRICE_ID_TRIAL (optionnel)
+     * STRIPE_PRICE_ID (fallback si un seul prix)
 2. npm install
 3. npm run dev
 4. Serveur disponible sur http://localhost:4000

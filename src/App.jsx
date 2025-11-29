@@ -175,16 +175,18 @@ const CVBuilder = () => {
 
     try {
       const data = await generateCv({
-        jobDescription,
-        userProfile: `${fullName} - ${targetRole}\n\n${userProfile}`
+        name: fullName,
+        targetRole,
+        experiences: `${fullName} - ${targetRole}\n\n${userProfile}`,
+        jobPosting: jobDescription
       })
 
-      if (!data?.result) {
+      if (!data?.generatedCvText) {
         setError('La génération a échoué, réessaie dans un instant.')
         return
       }
 
-      setGeneratedCv(data.result || sampleCvText)
+      setGeneratedCv(data.generatedCvText || sampleCvText)
       setAtsScore(data.atsScore ?? 82)
       setStep(2)
     } catch (err) {
@@ -338,7 +340,7 @@ const InterviewCoach = () => {
     try {
       const sessionContext = messages.map((msg) => ({ role: msg.type === 'user' ? 'user' : 'assistant', content: msg.text }))
       const response = await sendCoachMessage({ sessionContext, message: userMsg.text })
-      const aiResponseText = response?.data?.reply || "Merci pour ta réponse. Pourrais-tu détailler un succès mesurable ?"
+      const aiResponseText = response?.reply || "Merci pour ta réponse. Pourrais-tu détailler un succès mesurable ?"
       const aiMsg = { id: Date.now() + 1, type: 'ai', text: aiResponseText }
       setMessages((prev) => [...prev, aiMsg])
     } catch (err) {
@@ -531,8 +533,8 @@ const getViewFromPath = () => {
   if (path.startsWith('builder')) return 'builder'
   if (path.startsWith('coach')) return 'coach'
   if (path.startsWith('pricing')) return 'pricing'
-  if (path.startsWith('success')) return 'success'
-  if (path.startsWith('cancel')) return 'cancel'
+  if (path.startsWith('success') || path.startsWith('paiement/succes')) return 'success'
+  if (path.startsWith('cancel') || path.startsWith('paiement/annule')) return 'cancel'
   return 'landing'
 }
 

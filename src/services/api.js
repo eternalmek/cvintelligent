@@ -11,22 +11,32 @@ async function postJson(path, body) {
     body: JSON.stringify(body || {})
   })
 
+  const json = await response.json().catch(() => null)
+
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API error ${response.status}: ${errorText}`)
+    const message = json?.error || json?.message || `API error ${response.status}`
+    throw new Error(message)
   }
 
-  return response.json()
+  if (json && typeof json === 'object') {
+    if (json.ok === false) {
+      throw new Error(json.error || 'API error')
+    }
+
+    if (Object.prototype.hasOwnProperty.call(json, 'data')) {
+      return json.data
+    }
+  }
+
+  return json
 }
 
 export async function generateCv(payload) {
-  const response = await postJson('/api/generate-cv', payload)
-  return response?.data || response
+  return postJson('/api/generate-cv', payload)
 }
 
 export async function sendCoachMessage(payload) {
-  const response = await postJson('/api/coach', payload)
-  return response?.data || response
+  return postJson('/api/coach', payload)
 }
 
 export async function createCheckoutSession(payload) {

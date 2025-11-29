@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   TrendingUp
 } from 'lucide-react'
-import { createCheckoutSession, generateCv, sendCoachMessage } from './services/api'
+import { sendCoachMessage } from './services/api'
 
 /*
   Single-file app container.
@@ -158,8 +158,8 @@ const LandingPage = ({ onNavigate }) => (
 const CVBuilder = () => {
   const [fullName, setFullName] = useState('Thomas Dupont')
   const [targetRole, setTargetRole] = useState('Chef de Projet Digital')
-  const [experiences, setExperiences] = useState("5 ans d'expérience en gestion de projet agile. Maîtrise de Jira et Notion. Management d'équipe de 4 personnes.")
-  const [jobPosting, setJobPosting] = useState("Recherche Chef de Projet confirmé, maîtrise méthodologie Agile, anglais courant, capacité à gérer des budgets...")
+  const [userProfile, setUserProfile] = useState("5 ans d'expérience en gestion de projet agile. Maîtrise de Jira et Notion. Management d'équipe de 4 personnes.")
+  const [jobDescription, setJobDescription] = useState("Recherche Chef de Projet confirmé, maîtrise méthodologie Agile, anglais courant, capacité à gérer des budgets...")
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
   const [atsScore, setAtsScore] = useState(0)
@@ -171,15 +171,31 @@ const CVBuilder = () => {
   const handleGenerate = async () => {
     setLoading(true)
     setError(null)
+    setGeneratedCv('')
+
     try {
-      const response = await generateCv({ name: fullName, targetRole, experiences, jobPosting })
-      const payload = response?.data || {}
-      setGeneratedCv(payload.generatedCvText || sampleCvText)
-      setAtsScore(payload.atsScore ?? 0)
+      const res = await fetch('/api/generate-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobDescription,
+          userProfile: `${fullName} - ${targetRole}\n\n${userProfile}`
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Erreur lors de la génération')
+        return
+      }
+
+      setGeneratedCv(data.result || sampleCvText)
+      setAtsScore(data.atsScore ?? 0)
       setStep(2)
     } catch (err) {
       console.error(err)
-      setError("Impossible de contacter l'API. Vérifie VITE_API_BASE_URL et le backend.")
+      setError('Erreur réseau')
     } finally {
       setLoading(false)
     }
@@ -217,12 +233,12 @@ const CVBuilder = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tes expériences (ou import PDF)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ton profil / ton CV (ou import PDF)</label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg p-3 h-32"
                 placeholder="Colle ton expérience ici..."
-                value={experiences}
-                onChange={(e) => setExperiences(e.target.value)}
+                value={userProfile}
+                onChange={(e) => setUserProfile(e.target.value)}
               />
             </div>
             <div>
@@ -230,8 +246,8 @@ const CVBuilder = () => {
               <textarea
                 className="w-full border border-gray-300 rounded-lg p-3 h-32 bg-blue-50 border-blue-200"
                 placeholder="Colle l'annonce ici..."
-                value={jobPosting}
-                onChange={(e) => setJobPosting(e.target.value)}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
               />
             </div>
             <Button className="w-full" onClick={handleGenerate} disabled={loading}>
@@ -411,16 +427,28 @@ const Pricing = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
 
-  const handleCheckout = async (plan, mode = 'subscription') => {
+  const handleCheckout = async (plan) => {
     setCheckoutError(null)
     setCheckoutLoading(plan)
+
     try {
-      const checkoutUrl = await createCheckoutSession({ plan, mode })
-      if (!checkoutUrl) throw new Error('URL de paiement manquante')
-      window.location.href = checkoutUrl
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.url) {
+        setCheckoutError(data.error || 'Erreur lors de la redirection Stripe')
+        return
+      }
+
+      window.location.href = data.url
     } catch (err) {
       console.error(err)
-      setCheckoutError('Paiement indisponible. Vérifie la configuration Stripe côté serveur.')
+      setCheckoutError('Erreur réseau pendant le paiement')
     } finally {
       setCheckoutLoading(null)
     }
@@ -456,7 +484,7 @@ const Pricing = () => {
             <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> <strong>Simulations illimitées</strong></li>
             <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Modèles Premium</li>
           </ul>
-          <Button className="w-full" onClick={() => handleCheckout('premium-monthly', 'subscription')} disabled={checkoutLoading === 'premium-monthly'}>
+          <Button className="w-full" onClick={() => handleCheckout('premium-monthly')} disabled={checkoutLoading === 'premium-monthly'}>
             {checkoutLoading === 'premium-monthly' ? 'Redirection...' : 'Passer Premium'}
           </Button>
         </Card>
@@ -470,7 +498,7 @@ const Pricing = () => {
             <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> 1 Session intensive entretien</li>
             <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> Accès à vie aux PDF</li>
           </ul>
-          <Button variant="secondary" className="w-full" onClick={() => handleCheckout('pack-unique', 'payment')} disabled={checkoutLoading === 'pack-unique'}>
+          <Button variant="secondary" className="w-full" onClick={() => handleCheckout('pack-unique')} disabled={checkoutLoading === 'pack-unique'}>
             {checkoutLoading === 'pack-unique' ? 'Redirection...' : 'Acheter le pack'}
           </Button>
         </Card>

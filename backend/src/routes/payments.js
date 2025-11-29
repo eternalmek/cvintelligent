@@ -4,8 +4,16 @@ const Stripe = require('stripe')
 const router = express.Router()
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY
-const priceId = process.env.STRIPE_PRICE_ID
 const frontendUrl = process.env.FRONTEND_URL
+
+const priceMap = {
+  starter: process.env.STRIPE_PRICE_ID_STARTER,
+  pro: process.env.STRIPE_PRICE_ID_PRO,
+  ultimate: process.env.STRIPE_PRICE_ID_ULTIMATE,
+  trial: process.env.STRIPE_PRICE_ID_TRIAL,
+  // Backward compatibility for a single price ID
+  default: process.env.STRIPE_PRICE_ID
+}
 
 let stripeClient = null
 if (stripeSecret) {
@@ -15,12 +23,19 @@ if (stripeSecret) {
 }
 
 router.post('/payments/checkout', async (req, res) => {
-  if (!stripeClient || !priceId || !frontendUrl) {
-    return res.status(500).json({ ok: false, error: 'Stripe est mal configuré. Vérifie STRIPE_SECRET_KEY, STRIPE_PRICE_ID et FRONTEND_URL.' })
+  if (!stripeClient || !frontendUrl) {
+    return res.status(500).json({ ok: false, error: 'Stripe est mal configuré. Vérifie STRIPE_SECRET_KEY et FRONTEND_URL.' })
   }
 
   try {
     const { plan, customerEmail, mode } = req.body || {}
+    const normalizedPlan = (plan || 'default').toLowerCase()
+    const priceId = priceMap[normalizedPlan] || priceMap.default
+
+    if (!priceId) {
+      return res.status(500).json({ ok: false, error: `Price ID manquant pour le plan "${normalizedPlan}". Ajoute STRIPE_PRICE_ID_${normalizedPlan.toUpperCase()} ou STRIPE_PRICE_ID.` })
+    }
+
     const checkoutMode = mode === 'payment' ? 'payment' : 'subscription'
 
     const session = await stripeClient.checkout.sessions.create({
@@ -35,7 +50,7 @@ router.post('/payments/checkout', async (req, res) => {
       cancel_url: `${frontendUrl}/paiement/annule`,
       customer_email: customerEmail || undefined,
       metadata: {
-        plan: plan || 'default'
+        plan: normalizedPlan
       }
     })
 

@@ -150,6 +150,7 @@ const LandingPage = ({ onGenerateClick, onPricing, onCoach }) => (
             <p className="text-gray-600">
               Génération automatique à partir de ton CV et de l'offre. Change de ton en un clic : Pro, Direct, ou Chaleureux.
             </p>
+            <Badge color="orange">Coming soon</Badge>
           </Card>
         </div>
       </div>
@@ -537,6 +538,9 @@ const InterviewCoach = React.forwardRef(function InterviewCoach(_, ref) {
             </div>
           </div>
         </div>
+        <Button variant="outline" disabled title="Bientôt disponible">
+          Arrive bientôt
+        </Button>
       </div>
     </section>
   )

@@ -30,7 +30,7 @@ export async function sendCoachMessage(payload) {
 }
 
 export async function createCheckoutSession(payload) {
-  const data = await postJson('/api/payments/checkout', payload)
+  const data = await postJson('/api/checkout', payload)
   return data?.url || null
 }
 

@@ -1,40 +1,46 @@
 # cvintelligent (interface)
 
-Version minimale de l'interface React pour cvintelligent.fr (Vite + React + Tailwind).
+SaaS MVP front-end pour cvintelligent.fr (Vite + React + Tailwind) avec appels serverless Stripe et OpenAI.
 
-But:
-- J'ai retiré toute mention / import LinkedIn comme demandé.
-- Le projet est entièrement front-end. Les appels IA / paiement doivent être connectés à vos API / backend réels pour un fonctionnement en production.
-- Le code fourni est prêt pour démarrer, builder et previewer localement et en production statique (build -> héberger sur un CDN ou un service statique).
+## Prérequis
+- Node.js 18+
+- npm
+- Variables d'environnement (voir `.env.example`)
 
-Prérequis
-- Node.js 18+ recommandé
-- npm ou pnpm / yarn
-
-Installation
+## Installer et lancer en local
 1. Installer les dépendances :
+   ```bash
    npm install
-
-2. Lancer en mode dev :
+   ```
+2. Démarrer le frontend et les fonctions serverless Vercel en mode dev :
+   ```bash
    npm run dev
-
-3. Build production :
+   ```
+   Les endpoints utilisés :
+   - `POST /api/generate-cv` → nécessite `OPENAI_API_KEY`
+   - `POST /api/checkout` → nécessite `STRIPE_SECRET_KEY` + IDs de prix
+3. Builder puis prévisualiser :
+   ```bash
    npm run build
-   npm run preview (pour tester le build localement)
+   npm run preview
+   ```
 
-Notes de production
-- Ajoutez vos clés/API côté backend. Ne mettez jamais de clés secrètes dans le frontend.
-- Pour l'intégration IA (OpenAI ou autre), créez une API serveur qui encapsule les appels et expose un endpoint sécurisé.
-- Pour la gestion des paiements (Stripe ou autre), implémentez le backend côté serveur.
+## Déployer sur Vercel
+- Build command: `npm run build`
+- Output directory: `dist`
+- Functions: dossier `/api`
+- Rewrites SPA: voir `vercel.json` (toutes les routes non-API pointent vers `index.html`)
+- Variables à définir dans le dashboard Vercel :
+  - `OPENAI_API_KEY`
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_PRICE_ID_STARTER`
+  - `STRIPE_PRICE_ID_PRO`
+  - `STRIPE_PRICE_ID_ULTIMATE`
+  - `FRONTEND_URL` (URL publique du déploiement)
+  - Optionnel: `VITE_API_BASE_URL` si vos fonctions tournent ailleurs qu'en local
 
-Structure des fichiers principaux
-- index.html
-- src/main.jsx
-- src/App.jsx (UI complète, navigation et vues)
-- src/index.css (Tailwind)
-- vite.config.js, tailwind.config.cjs, postcss.config.cjs
-
-Si vous voulez, je peux :
-- Séparer les composants en fichiers (components/*) pour plus de clarté.
-- Ajouter des tests, linter (ESLint) et CI (GitHub Actions).
-- Préparer un backend exemple pour les appels IA (Node/Express ou serverless).
+## Fonctionnalités
+- Création de CV IA (formulaire complet, loading, copier le résultat)
+- Paiement Stripe Checkout (plans Starter / Pro / Ultimate) depuis la page Tarifs
+- Routes SPA: `/`, `/pricing`, `/success`, `/cancel`
+- Sections non prêtes marquées "Coming soon" pour éviter toute confusion

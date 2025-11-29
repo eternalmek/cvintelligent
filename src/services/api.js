@@ -1,6 +1,10 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
-const buildUrl = (path) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+const buildUrl = (path) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  if (!API_BASE_URL) return normalizedPath
+  return `${API_BASE_URL}${normalizedPath}`
+}
 
 async function postJson(path, body) {
   const response = await fetch(buildUrl(path), {
@@ -35,12 +39,8 @@ export async function generateCv(payload) {
   return postJson('/api/generate-cv', payload)
 }
 
-export async function sendCoachMessage(payload) {
-  return postJson('/api/coach', payload)
-}
-
 export async function createCheckoutSession(payload) {
-  const response = await postJson('/api/payments/checkout', payload)
+  const response = await postJson('/api/checkout', payload)
   return response?.url || null
 }
 

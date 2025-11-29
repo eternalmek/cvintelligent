@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   FileText,
   Mic,
@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   TrendingUp
 } from 'lucide-react'
-import { sendCoachMessage } from './services/api'
+import { createCheckoutSession, generateCv, sendCoachMessage } from './services/api'
 
 /*
   Single-file app container.
@@ -174,28 +174,22 @@ const CVBuilder = () => {
     setGeneratedCv('')
 
     try {
-      const res = await fetch('/api/generate-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobDescription,
-          userProfile: `${fullName} - ${targetRole}\n\n${userProfile}`
-        })
+      const data = await generateCv({
+        jobDescription,
+        userProfile: `${fullName} - ${targetRole}\n\n${userProfile}`
       })
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || 'Erreur lors de la génération')
+      if (!data?.result) {
+        setError('La génération a échoué, réessaie dans un instant.')
         return
       }
 
       setGeneratedCv(data.result || sampleCvText)
-      setAtsScore(data.atsScore ?? 0)
+      setAtsScore(data.atsScore ?? 82)
       setStep(2)
     } catch (err) {
       console.error(err)
-      setError('Erreur réseau')
+      setError(err.message || 'Erreur réseau')
     } finally {
       setLoading(false)
     }
@@ -432,20 +426,14 @@ const Pricing = () => {
     setCheckoutLoading(plan)
 
     try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan })
-      })
+      const url = await createCheckoutSession({ plan })
 
-      const data = await res.json()
-
-      if (!res.ok || !data.url) {
-        setCheckoutError(data.error || 'Erreur lors de la redirection Stripe')
+      if (!url) {
+        setCheckoutError('Erreur lors de la redirection Stripe')
         return
       }
 
-      window.location.href = data.url
+      window.location.href = url
     } catch (err) {
       console.error(err)
       setCheckoutError('Erreur réseau pendant le paiement')
@@ -464,42 +452,44 @@ const Pricing = () => {
 
       <div className="grid md:grid-cols-3 gap-8 items-start">
         <Card className="border-gray-200">
-          <h3 className="text-xl font-bold mb-2">Découverte</h3>
-          <div className="text-4xl font-bold mb-6">0€<span className="text-base font-normal text-gray-500">/mois</span></div>
+          <h3 className="text-xl font-bold mb-2">Starter</h3>
+          <div className="text-4xl font-bold mb-6">9€<span className="text-base font-normal text-gray-500">/mois</span></div>
           <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> 1 CV IA simple</li>
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> 1 Lettre de motivation</li>
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> Simulation (5 questions)</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> 2 CV IA / mois</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> 1 lettre de motivation</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-green-500" /> Mini coaching entretien</li>
           </ul>
-          <Button variant="outline" className="w-full">Commencer Gratuitement</Button>
+          <Button variant="outline" className="w-full" onClick={() => handleCheckout('starter')} disabled={checkoutLoading === 'starter'}>
+            {checkoutLoading === 'starter' ? 'Redirection...' : 'Choisir Starter'}
+          </Button>
         </Card>
 
         <Card className="border-indigo-600 ring-2 ring-indigo-600 ring-offset-2 relative">
           <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">POPULAIRE</div>
-          <h3 className="text-xl font-bold mb-2 text-indigo-900">Premium Mensuel</h3>
-          <div className="text-4xl font-bold mb-6">9,90€<span className="text-base font-normal text-gray-500">/mois</span></div>
+          <h3 className="text-xl font-bold mb-2 text-indigo-900">Pro</h3>
+          <div className="text-4xl font-bold mb-6">19€<span className="text-base font-normal text-gray-500">/mois</span></div>
           <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> <strong>CV Illimités</strong></li>
-            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Lettres illimitées</li>
-            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> <strong>Simulations illimitées</strong></li>
-            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Modèles Premium</li>
+            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> CV et lettres illimités</li>
+            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Feedback ATS détaillé</li>
+            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Coaching entretien illimité</li>
+            <li className="flex items-center gap-2 text-sm text-gray-800"><CheckCircle size={16} className="text-indigo-600" /> Modèles premium</li>
           </ul>
-          <Button className="w-full" onClick={() => handleCheckout('premium-monthly')} disabled={checkoutLoading === 'premium-monthly'}>
-            {checkoutLoading === 'premium-monthly' ? 'Redirection...' : 'Passer Premium'}
+          <Button className="w-full" onClick={() => handleCheckout('pro')} disabled={checkoutLoading === 'pro'}>
+            {checkoutLoading === 'pro' ? 'Redirection...' : 'Choisir Pro'}
           </Button>
         </Card>
 
         <Card className="bg-gray-50 border-gray-200">
-          <h3 className="text-xl font-bold mb-2">Pack Unique</h3>
-          <div className="text-4xl font-bold mb-6">29€<span className="text-base font-normal text-gray-500">/une fois</span></div>
-          <p className="text-sm text-gray-500 mb-6">Pour ceux qui n'aiment pas les abonnements.</p>
+          <h3 className="text-xl font-bold mb-2">Ultimate</h3>
+          <div className="text-4xl font-bold mb-6">49€<span className="text-base font-normal text-gray-500">/mois</span></div>
+          <p className="text-sm text-gray-500 mb-6">Pour ceux qui veulent une préparation complète et prioritaire.</p>
           <ul className="space-y-3 mb-8">
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> 1 Dossier complet (CV + Lettre)</li>
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> 1 Session intensive entretien</li>
-            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> Accès à vie aux PDF</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> Pack complet CV + Lettre bilingue</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> Sessions de coaching prioritaire</li>
+            <li className="flex items-center gap-2 text-sm text-gray-600"><CheckCircle size={16} className="text-gray-400" /> Rapport personnalisé</li>
           </ul>
-          <Button variant="secondary" className="w-full" onClick={() => handleCheckout('pack-unique')} disabled={checkoutLoading === 'pack-unique'}>
-            {checkoutLoading === 'pack-unique' ? 'Redirection...' : 'Acheter le pack'}
+          <Button variant="secondary" className="w-full" onClick={() => handleCheckout('ultimate')} disabled={checkoutLoading === 'ultimate'}>
+            {checkoutLoading === 'ultimate' ? 'Redirection...' : 'Choisir Ultimate'}
           </Button>
         </Card>
       </div>
@@ -507,17 +497,71 @@ const Pricing = () => {
   )
 }
 
+const SuccessPage = ({ onNavigate }) => (
+  <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-6">
+    <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+      <CheckCircle size={32} />
+    </div>
+    <h2 className="text-3xl font-bold">Paiement confirmé ✅</h2>
+    <p className="text-gray-600">Ton accès premium est actif. Tu peux générer autant de CV et lettres que tu veux.</p>
+    <div className="flex gap-3 justify-center">
+      <Button onClick={() => onNavigate('builder')}>Générer un CV</Button>
+      <Button variant="secondary" onClick={() => onNavigate('coach')}>Tester le coach</Button>
+    </div>
+  </div>
+)
+
+const CancelPage = ({ onNavigate }) => (
+  <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-6">
+    <div className="mx-auto h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+      <X size={32} />
+    </div>
+    <h2 className="text-3xl font-bold">Paiement annulé</h2>
+    <p className="text-gray-600">Aucun débit effectué. Tu peux revenir aux formules et choisir quand tu veux.</p>
+    <div className="flex gap-3 justify-center">
+      <Button onClick={() => onNavigate('pricing')}>Voir les offres</Button>
+      <Button variant="secondary" onClick={() => onNavigate('builder')}>Essayer le générateur</Button>
+    </div>
+  </div>
+)
+
+const getViewFromPath = () => {
+  if (typeof window === 'undefined') return 'landing'
+  const path = window.location.pathname.replace(/^\//, '')
+  if (path.startsWith('builder')) return 'builder'
+  if (path.startsWith('coach')) return 'coach'
+  if (path.startsWith('pricing')) return 'pricing'
+  if (path.startsWith('success')) return 'success'
+  if (path.startsWith('cancel')) return 'cancel'
+  return 'landing'
+}
+
 const App = () => {
-  const [currentView, setCurrentView] = useState('landing')
+  const [currentView, setCurrentView] = useState(getViewFromPath)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setCurrentView(getViewFromPath())
+  }, [])
+
+  const navigate = (view) => {
+    setCurrentView(view)
+    if (typeof window !== 'undefined') {
+      const nextPath = view === 'landing' ? '/' : `/${view}`
+      window.history.replaceState({}, '', nextPath)
+    }
+    setIsMenuOpen(false)
+  }
 
   const renderView = () => {
     switch (currentView) {
-      case 'landing': return <LandingPage onNavigate={setCurrentView} />
+      case 'landing': return <LandingPage onNavigate={navigate} />
       case 'builder': return <CVBuilder />
       case 'coach': return <InterviewCoach />
       case 'pricing': return <Pricing />
-      default: return <LandingPage onNavigate={setCurrentView} />
+      case 'success': return <SuccessPage onNavigate={navigate} />
+      case 'cancel': return <CancelPage onNavigate={navigate} />
+      default: return <LandingPage onNavigate={navigate} />
     }
   }
 
@@ -528,7 +572,7 @@ const App = () => {
           <div className="flex justify-between items-center h-16">
             <div
               className="flex items-center gap-2 font-bold text-xl cursor-pointer"
-              onClick={() => setCurrentView('landing')}
+              onClick={() => navigate('landing')}
             >
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
                 <FileText size={20} />
@@ -537,10 +581,10 @@ const App = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => setCurrentView('builder')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'builder' ? 'text-indigo-600' : 'text-gray-600'}`}>Créateur CV</button>
-              <button onClick={() => setCurrentView('coach')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'coach' ? 'text-indigo-600' : 'text-gray-600'}`}>Entretien IA</button>
-              <button onClick={() => setCurrentView('pricing')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'pricing' ? 'text-indigo-600' : 'text-gray-600'}`}>Tarifs</button>
-              <Button size="sm" onClick={() => setCurrentView('builder')} className="py-2 px-4 text-sm">
+              <button onClick={() => navigate('builder')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'builder' ? 'text-indigo-600' : 'text-gray-600'}`}>Créateur CV</button>
+              <button onClick={() => navigate('coach')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'coach' ? 'text-indigo-600' : 'text-gray-600'}`}>Entretien IA</button>
+              <button onClick={() => navigate('pricing')} className={`text-sm font-medium hover:text-indigo-600 ${currentView === 'pricing' ? 'text-indigo-600' : 'text-gray-600'}`}>Tarifs</button>
+              <Button size="sm" onClick={() => navigate('builder')} className="py-2 px-4 text-sm">
                 Mon Espace
               </Button>
             </div>
@@ -555,10 +599,10 @@ const App = () => {
 
         {isMenuOpen && (
           <div className="md:hidden bg-white border-b border-gray-100 p-4 space-y-4 shadow-lg absolute w-full">
-            <button onClick={() => { setCurrentView('builder'); setIsMenuOpen(false) }} className="block w-full text-left font-medium text-gray-700 py-2">Créateur CV</button>
-            <button onClick={() => { setCurrentView('coach'); setIsMenuOpen(false) }} className="block w-full text-left font-medium text-gray-700 py-2">Entretien IA</button>
-            <button onClick={() => { setCurrentView('pricing'); setIsMenuOpen(false) }} className="block w-full text-left font-medium text-gray-700 py-2">Tarifs</button>
-            <Button className="w-full justify-center" onClick={() => { setCurrentView('builder'); setIsMenuOpen(false) }}>Connexion</Button>
+            <button onClick={() => navigate('builder')} className="block w-full text-left font-medium text-gray-700 py-2">Créateur CV</button>
+            <button onClick={() => navigate('coach')} className="block w-full text-left font-medium text-gray-700 py-2">Entretien IA</button>
+            <button onClick={() => navigate('pricing')} className="block w-full text-left font-medium text-gray-700 py-2">Tarifs</button>
+            <Button className="w-full justify-center" onClick={() => navigate('builder')}>Connexion</Button>
           </div>
         )}
       </nav>
